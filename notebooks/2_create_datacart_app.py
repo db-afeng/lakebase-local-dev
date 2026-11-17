@@ -285,13 +285,33 @@ except NotFound:
         ),
         no_compute=True,
     ).response
+# App creation returns before its service principal is always populated. Poll the
+# app resource, not the compute state: compute intentionally remains stopped here.
 client_id = app.service_principal_client_id
+identity_deadline = time.monotonic() + 300
 if not client_id:
-    raise RuntimeError("App service principal is not ready; rerun this cell.")
+    print("Waiting for the app service principal to be provisioned...")
+while not client_id:
+    if time.monotonic() >= identity_deadline:
+        raise TimeoutError(
+            f"Service principal for {APP_NAME} was not provisioned within 5 minutes. "
+            "Inspect the app in the workspace for a provisioning error."
+        )
+    time.sleep(2)
+    try:
+        app = w.apps.get(name=APP_NAME)
+    except NotFound:
+        # A new app can briefly be absent from reads while creation propagates.
+        continue
+    client_id = app.service_principal_client_id
+print(f"App service principal ready: {client_id}")
 
 # COMMAND ----------
 
 # MAGIC %md
+# MAGIC The creation cell waits up to five minutes for the service principal to become
+# MAGIC available before proceeding; app compute stays stopped during this wait.
+# MAGIC
 # MAGIC ### Grant the app access to the storefront schema
 # MAGIC
 # MAGIC Use your database-administrator connection to ensure the app's OAuth login exists

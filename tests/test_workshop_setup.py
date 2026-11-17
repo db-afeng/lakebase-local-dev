@@ -81,6 +81,62 @@ class WorkshopSetupTest(unittest.TestCase):
             )
         w.apps.get.assert_not_called()
 
+    def test_project_display_name_uses_cleaned_username_suffix(self):
+        w = Mock()
+        w.current_user.me.return_value.user_name = "alex.feng@example.com"
+        w.postgres.get_project.side_effect = NotFound("not created yet")
+        ns = session(w, LAKEBASE_PROJECT_ID="datacart-alex-feng")
+        execute(
+            cell_containing(
+                "0_optional_create_lakebase_project", "w.postgres.create_project"
+            ),
+            ns,
+        )
+        self.assertEqual(
+            w.postgres.create_project.call_args.kwargs["project"].spec.display_name,
+            "DataCart Storefront <alex-feng>",
+        )
+
+    def test_app_creation_waits_for_service_principal_without_starting_compute(self):
+        w = Mock()
+        pending = apps.App(name="demo-app")
+        ready = apps.App(name="demo-app", service_principal_client_id="ready-client-id")
+        w.apps.get.side_effect = [NotFound("not created yet"), pending, ready]
+        w.apps.create.return_value.response = pending
+        ns = session(
+            w,
+            APP_NAME="demo-app",
+            target={"branch": "projects/demo/branches/production", "database": "db"},
+        )
+        ns["time"] = Mock()
+        ns["time"].monotonic.return_value = 0
+        execute(
+            cell_containing("2_create_datacart_app", "expected = apps.AppResource"), ns
+        )
+        self.assertEqual(ns["client_id"], "ready-client-id")
+        self.assertEqual(w.apps.get.call_count, 3)
+        self.assertEqual(ns["time"].sleep.call_count, 2)
+        w.apps.create.assert_called_once()
+        w.apps.start.assert_not_called()
+
+    def test_app_identity_wait_times_out(self):
+        w = Mock()
+        w.apps.get.side_effect = NotFound("not created yet")
+        w.apps.create.return_value.response = apps.App(name="demo-app")
+        ns = session(
+            w,
+            APP_NAME="demo-app",
+            target={"branch": "projects/demo/branches/production", "database": "db"},
+        )
+        ns["time"] = Mock()
+        ns["time"].monotonic.side_effect = [0, 301]
+        with self.assertRaisesRegex(TimeoutError, "within 5 minutes"):
+            execute(
+                cell_containing("2_create_datacart_app", "expected = apps.AppResource"),
+                ns,
+            )
+        w.apps.start.assert_not_called()
+
     def test_status_only_endpoint_and_distinct_database_ids(self):
         w = Mock()
         w.postgres.list_databases.return_value = [
@@ -231,6 +287,7 @@ class WorkshopSetupTest(unittest.TestCase):
                 )
             ],
         )
+        w.postgres.get_project.return_value = postgres.Project(name="projects/demo")
         w.postgres.list_branches.return_value = [
             postgres.Branch(name="projects/demo/branches/production")
         ]
@@ -251,6 +308,39 @@ class WorkshopSetupTest(unittest.TestCase):
         self.assertEqual(plan["branches"], ["projects/demo/branches/production"])
         w.apps.delete.assert_not_called()
         w.postgres.delete_project.assert_not_called()
+
+    def test_teardown_resolves_ui_uuid_to_readable_project_id(self):
+        w = self.teardown_client()
+        project_uuid = "12345678-1234-1234-1234-123456789abc"
+        w.postgres.list_projects.return_value = [
+            postgres.Project(name="projects/demo", uid=project_uuid)
+        ]
+        plan = self.teardown(w, project=project_uuid)
+        self.assertEqual(plan["project"], "projects/demo")
+        self.assertEqual(plan["project_input"], project_uuid)
+        w.postgres.list_projects.assert_called_once_with(show_deleted=True)
+        w.postgres.list_branches.assert_called_once_with(parent="projects/demo")
+        w.apps.delete.assert_not_called()
+
+    def test_teardown_does_not_delete_soft_deleted_project_again(self):
+        w = self.teardown_client()
+        w.apps.get.side_effect = NotFound("gone")
+        w.postgres.get_project.return_value = postgres.Project(
+            name="projects/demo", delete_time="2026-11-17T00:00:00Z"
+        )
+        plan = self.teardown(w, dry_run=False)
+        self.assertFalse(plan["project_exists"])
+        w.postgres.list_branches.assert_not_called()
+        w.postgres.delete_project.assert_not_called()
+
+    def test_teardown_error_shows_selected_and_bound_project(self):
+        w = self.teardown_client()
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "projects/demo-other.*Actual Lakebase bindings:.*projects/demo/branches/production",
+        ):
+            self.teardown(w, "demo-other", False)
+        w.apps.delete.assert_not_called()
 
     def test_teardown_refuses_other_project_before_deletion(self):
         w = self.teardown_client()

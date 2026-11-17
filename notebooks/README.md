@@ -16,14 +16,19 @@ fetched with an integrity check if missing.
 
 1. **Optional: `0_optional_create_lakebase_project`** creates a Lakebase Autoscaling
    project. Prefer clickops if desired: create a project with its default
-   `production` branch, read-write endpoint, and `databricks_postgres` database.
+   `production` branch, read-write endpoint, and `databricks_postgres` database. New
+   projects display as `DataCart Storefront <your-cleaned-username>`.
 2. **`1_prepare_schema_and_seed`** accepts your project ID, applies Alembic, and
    seeds 5 customers, 12 products, 12 inventory rows, 6 orders, and 6 order items.
 3. **`2_create_datacart_app`** accepts the same project ID, builds the React app,
-   creates a Databricks App, binds its database, grants access, and deploys it.
+   creates a Databricks App, waits up to five minutes for its service principal,
+   binds its database, grants access, and deploys it.
 4. **`3_teardown_datacart`** previews cleanup, then deletes the app followed by the
    entire Lakebase project when you set `DRY_RUN = False`. Enter the exact app name
-   and project ID used in the workshop. Every project branch and database is in
+   and project ID used in the workshop. A UI project UUID is resolved to its
+   readable resource ID before checking the app binding; mismatches show both
+   the selected project and actual binding paths. Already soft-deleted projects
+   are skipped. Every project branch and database is in
    scope, including any local-development branches. Export data you want to keep
    and ensure no other apps or users depend on the project before deletion.
    Normal project retention is preserved; immediate purge is never requested.
@@ -128,6 +133,12 @@ Validated with the explicitly selected `lakebase-workshop` profile on Azure:
   A Node executable being present is insufficient: it must run on the selected
   compute architecture. Use compatible Node.js 20+ compute if this error recurs.
   The subsequent walkthrough-comment edits preserve the executable Python AST.
+- Validated the UUID-aware teardown preview against `datacart-alex-feng` and
+  `datacart-storefront-alex-feng` without deleting resources:
+  [UUID binding preview](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/827377901884223/run/447393344324403).
+  The temporary check notebook was removed afterward. Local tests cover delayed
+  service-principal provisioning, its timeout, the project display-name suffix,
+  explicit binding-mismatch diagnostics, and soft-deleted project reruns.
 - Confirmed migration `0001`, initial seed counts, role-based app access, and
   successful reruns without resetting seeded data.
 - Authenticated HTTP checks passed for the frontend, health, products, featured

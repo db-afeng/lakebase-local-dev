@@ -35,9 +35,10 @@
 # MAGIC ## Your inputs
 # MAGIC
 # MAGIC Enter the project ID used in notebooks 0–2 and the **exact app name printed by
-# MAGIC notebook 2**. A full `projects/<id>` path is accepted. The app name is deliberately
+# MAGIC notebook 2**. A full `projects/<id>` path or the project UUID is accepted. The app name is deliberately
 # MAGIC required, including when notebook 2 generated it from your username. Existing
-# MAGIC resources keep their original names; copy the names actually used to create them.
+# MAGIC A UUID is resolved to its readable project resource ID before checking bindings.
+# MAGIC Existing resources keep their original names; copy the names actually used to create them.
 # MAGIC
 # MAGIC Keep `DRY_RUN = True` for the first pass. Review the preview, then change it to
 # MAGIC `False` and rerun the input block, preview, and deletion cells.
@@ -74,12 +75,44 @@ DRY_RUN = True  # Preview first; set False only when ready to delete both resour
 
 # Invalidate an earlier preview before any validation or API call can fail.
 plan = None
-project_id = LAKEBASE_PROJECT_ID.strip().removeprefix("projects/")
-if not re.fullmatch(r"[a-z][a-z0-9-]{1,61}[a-z0-9]", project_id):
-    raise ValueError(
-        "Enter your Lakebase project ID (3–63 lowercase letters, digits, hyphens)."
+# The UI may show the project's UUID (uid), while Apps bindings use its readable ID.
+# Resolve UUID input through Lakebase instead of comparing unlike identifiers.
+project_input = LAKEBASE_PROJECT_ID.strip().removeprefix("projects/")
+project_is_uuid = bool(
+    re.fullmatch(
+        r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+        project_input,
     )
-project = f"projects/{project_id}"
+)
+if project_is_uuid:
+    matching_projects = [
+        item
+        for item in w.postgres.list_projects(show_deleted=True)
+        if item.uid and item.uid.lower() == project_input.lower()
+    ]
+    if len(matching_projects) != 1:
+        raise ValueError(
+            "Project UUID was not found uniquely. Enter its readable project ID "
+            "(for example datacart-alex-feng), or check your workspace access."
+        )
+    project_resource = matching_projects[0]
+    project = project_resource.name
+    print(f"Resolved project UUID {project_input} to {project}")
+else:
+    if not re.fullmatch(r"[a-z][a-z0-9-]{1,61}[a-z0-9]", project_input):
+        raise ValueError(
+            "Enter the readable Lakebase project ID, a projects/<id> path, or its UUID."
+        )
+    project = f"projects/{project_input}"
+    try:
+        project_resource = w.postgres.get_project(name=project)
+    except NotFound:
+        project_resource = None
+
+# A soft-deleted project can still be returned by get_project during retention.
+# Treat it as already deleted; listing its branches or deleting it again is unnecessary.
+project_exists = project_resource is not None and not project_resource.delete_time
+print(f"Selected project: {project}")
 # Require an explicit app name rather than inferring which resource to delete.
 APP_NAME = APP_NAME.strip()
 if not re.fullmatch("[a-z][a-z0-9-]{0,28}[a-z0-9]", APP_NAME):
@@ -106,24 +139,27 @@ if app is not None:
             for binding in bindings
         )
     ):
+        actual_bindings = [
+            {"branch": binding.branch, "database": binding.database}
+            for binding in bindings
+        ]
         raise RuntimeError(
-            "App is not bound exclusively to the selected Lakebase project; nothing was deleted."
+            f"App {APP_NAME!r} is not bound exclusively to selected project {project!r}. "
+            f"Actual Lakebase bindings: {json.dumps(actual_bindings)}. "
+            "Check LAKEBASE_PROJECT_ID and APP_NAME; nothing was deleted."
         )
-try:
-    w.postgres.get_project(name=project)
-except NotFound:
-    project_exists = False
-    # Inventory all branches so the participant can see the full project deletion scope.
-    branches = []
-else:
-    project_exists = True
-    # Inventory all branches so the participant can see the full project deletion scope.
-    branches = [branch.name for branch in w.postgres.list_branches(parent=project)]
+# Inventory active branches only; the entire project remains the deletion scope.
+branches = (
+    [branch.name for branch in w.postgres.list_branches(parent=project)]
+    if project_exists
+    else []
+)
 # This preview is also the input snapshot checked by the deletion cell below.
 plan = {
     "app": APP_NAME,
     "app_exists": app is not None,
     "project": project,
+    "project_input": project_input,
     "project_exists": project_exists,
     "branches": branches,
     "dry_run": DRY_RUN,
@@ -148,8 +184,7 @@ print("Preview only. No resources were deleted.")
 if (
     not isinstance(plan, dict)
     or plan["app"] != APP_NAME.strip()
-    or plan["project"]
-    != "projects/" + LAKEBASE_PROJECT_ID.strip().removeprefix("projects/")
+    or plan["project_input"] != LAKEBASE_PROJECT_ID.strip().removeprefix("projects/")
     or plan["dry_run"] != DRY_RUN
 ):
     raise RuntimeError("Inputs changed. Rerun the preview before deleting.")
@@ -203,7 +238,7 @@ else:
 # MAGIC | What you see | What to do |
 # MAGIC | --- | --- |
 # MAGIC | Empty or invalid input | Copy the project ID and exact app name from your workshop output, then rerun the input block |
-# MAGIC | App is bound to a different project, or has no Lakebase binding | Check both inputs in the workspace UI; the preview refuses deletion rather than guessing |
+# MAGIC | App is bound to a different project, or has no Lakebase binding | Compare the selected path and actual binding paths printed in the error. Use the project attached to this app; the preview refuses deletion rather than guessing |
 # MAGIC | Permission denied | Use the resource owner or an administrator with permission to delete these resources |
 # MAGIC | App deletion timeout | Wait and inspect the app in the UI, then rerun; the project has not been deleted by this attempt |
 # MAGIC | Project deletion fails after the app was deleted | Inspect the Lakebase error and rerun after resolving it; the missing app is skipped |
