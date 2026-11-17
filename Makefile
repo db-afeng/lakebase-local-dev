@@ -64,6 +64,7 @@ check: ## Validate Git hooks, branch naming, and both Compose modes
 	@$(COMPOSE) config --format json | jq -e --arg name "$(COMPOSE_PROJECT_NAME)" \
 		'.name == $$name and (.services.postgres.ports == null) and (.services.backend.ports == null) and (.services.frontend.ports == [{host_ip: "127.0.0.1", mode: "ingress", protocol: "tcp", published: "0", target: 80}])' >/dev/null
 	@PGHOST=lakebase.example PGUSER=developer@example.com PGPASSWORD=test \
+		PGOPTIONS='-c role=datacart_storefront_owner' \
 		ENDPOINT_NAME=projects/test/branches/test/endpoints/primary \
 		$(COMPOSE) -f compose.yaml -f compose.lakebase.yaml config --format json | \
-		jq -e '.services.postgres == null and .services.backend.depends_on.postgres.required == false and .services.backend.environment.PGHOST == "lakebase.example"' >/dev/null
+		jq -e '.services.postgres == null and .services.backend.depends_on.postgres.required == false and .services.backend.environment.PGHOST == "lakebase.example" and .services.backend.environment.PGOPTIONS == "-c role=datacart_storefront_owner"' >/dev/null

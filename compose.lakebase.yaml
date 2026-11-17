@@ -10,6 +10,7 @@ services:
       PGPASSWORD: ${PGPASSWORD:?Run make dev-lakebase to generate .env.lakebase}
       PGDATABASE: ${PGDATABASE:-databricks_postgres}
       PGSSLMODE: require
+      PGOPTIONS: ${PGOPTIONS:-}
       ENDPOINT_NAME: ${ENDPOINT_NAME:?Run make dev-lakebase to generate .env.lakebase}
     depends_on:
       postgres:

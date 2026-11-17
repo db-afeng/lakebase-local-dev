@@ -393,6 +393,7 @@ write_env_file() {
         printf 'PGPASSWORD=%s\n' "$token"
         printf 'PGDATABASE=%s\n' "$LAKEBASE_DATABASE"
         printf 'PGSSLMODE=require\n'
+        printf 'PGOPTIONS=%s\n' "${LAKEBASE_PG_OPTIONS:-}"
         printf 'ENDPOINT_NAME=%s\n' "$ENDPOINT_NAME"
         printf 'LAKEBASE_PG_ROLE=%s\n' "$LAKEBASE_PG_ROLE"
         printf 'LAKEBASE_BRANCH_PATH=%s\n' "$LAKEBASE_BRANCH_PATH"

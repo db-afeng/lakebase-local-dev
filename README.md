@@ -8,6 +8,16 @@ project prefix to keep this checkout separate from the original storefront.
 Prerequisites: Docker with Compose, Make, Git with `user.name` configured,
 Python 3, and `jq`. No Databricks credentials are needed for local PostgreSQL.
 
+## Prepare a Databricks workspace
+
+The four [workspace setup notebooks](notebooks/README.md), backed by a shared
+`setup` notebook and editable Python input variables, create an optional
+Lakebase project (notebook 0), apply Alembic and seed core storefront data
+(notebook 1), build/deploy the Databricks App (notebook 2), and tear down the app
+and dedicated project (notebook 3, with a preview by default). You can skip
+notebook 0 and enter a project created through the workspace UI in notebooks 1
+and 2. Import the complete repository so supporting files remain available.
+
 ## Local development with Docker
 
 The local stack builds the React storefront from source and serves it with
@@ -70,11 +80,13 @@ Prerequisites:
 - Databricks CLI with `databricks postgres` support (0.294.0 or newer)
 - An authenticated Databricks CLI profile, `jq`, and Python 3
 - An existing Lakebase project, specified by `LAKEBASE_PROJECT_NAME`
-- Your Databricks identity belongs to `lakebase-app-schema-owner`
+- An authorized PostgreSQL OAuth role; use your workspace username after notebook setup
 
 Set `LAKEBASE_PROJECT_NAME` in your environment or `lakebase.config`.
-Connections use the `lakebase-app-schema-owner` group role by default.
-Choose your Databricks profile explicitly; override the group role when needed.
+Connections use the `lakebase-app-schema-owner` group role by default. For the
+notebook setup, use your workspace username as `LAKEBASE_PG_ROLE` and set
+`LAKEBASE_PG_OPTIONS="-c role=datacart_storefront_owner"`; see the notebook README.
+Choose your Databricks profile explicitly.
 
 Start Lakebase development:
 
@@ -88,8 +100,8 @@ duplicate suffix when a Cursor branch already ends in that ID. It waits for the
 read-write endpoint, writes a mode-0600 worktree-local `.env.lakebase`, and
 starts Compose with `compose.lakebase.yaml`. For non-Cursor branches, the
 derived ID preserves distinctions between Git refs that sanitize to the same
-text. Branch Alembic migrations therefore remain owned by the same group role
-as production. The generated credential expires after about one hour. Refresh
+text. The optional `LAKEBASE_PG_OPTIONS` session role keeps migration ownership
+consistent with the seeded parent database. The generated credential expires after about one hour. Refresh
 it and recreate only this development context's backend with:
 
 ```bash
@@ -99,8 +111,8 @@ LAKEBASE_PROJECT_NAME=<project-id> LAKEBASE_PROFILE=<profile> make refresh-lakeb
 Stop either development mode with `make dev-down`. Development branches expire
 after six hours; stopping Compose does not delete one immediately.
 
-No seed utility is included. Local PostgreSQL starts with the schema only.
-Lakebase branches inherit their parent branch's data.
+Local PostgreSQL starts with the schema only. Notebook 1 seeds the selected
+Lakebase database; development branches inherit their parent branch's data.
 
 ### Optional post-checkout provisioning
 
@@ -159,7 +171,7 @@ make check
 
 ## Current limitations
 
-- Local PostgreSQL has no seed data. Add products, inventory, and customer ID 1
+- Local PostgreSQL has no automatic seed data. Add products, inventory, and customer ID 1
   before exercising a purchase. Verified: `/api/account` currently returns HTTP
   500 when that customer is missing.
 - Carts live in backend memory and use a shared demo customer (ID 1). They reset
