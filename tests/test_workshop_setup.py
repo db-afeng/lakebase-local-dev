@@ -28,6 +28,8 @@ def cell_containing(name, text):
 def session(w, **inputs):
     if not isinstance(w.current_user.me().user_name, str):
         w.current_user.me.return_value.user_name = "workshop.user@example.com"
+    if isinstance(w.postgres.get_project.return_value, Mock):
+        w.postgres.get_project.return_value = postgres.Project(name="projects/demo")
     namespace = {"__name__": "__notebook__"}
     with (
         patch("databricks.sdk.WorkspaceClient", return_value=w),
@@ -45,6 +47,40 @@ def execute(code, namespace):
 
 
 class WorkshopSetupTest(unittest.TestCase):
+    def test_deleted_project_is_rejected_before_creation_or_branch_access(self):
+        for name, marker in (
+            ("1_optional_create_lakebase_project", "w.postgres.create_project"),
+            ("1_optional_create_lakebase_project", "databases = list"),
+            ("2_prepare_schema_and_seed", "databases = list"),
+            ("3_create_datacart_app", "databases = list"),
+        ):
+            with self.subTest(notebook=name, cell=marker):
+                w = Mock()
+                w.postgres.get_project.return_value = postgres.Project(
+                    name="projects/demo",
+                    delete_time="2026-11-17T05:37:47Z",
+                    purge_time="2026-11-24T05:37:47Z",
+                )
+                ns = session(w, LAKEBASE_PROJECT_ID="demo", BRANCH_ID="production")
+                with self.assertRaisesRegex(RuntimeError, "soft-deleted.*2026-11-24"):
+                    execute(cell_containing(name, marker), ns)
+                w.postgres.create_project.assert_not_called()
+                w.postgres.get_branch.assert_not_called()
+                w.postgres.undelete_project.assert_not_called()
+                w.postgres.delete_project.assert_not_called()
+
+    def test_active_project_is_reused_without_creating_it(self):
+        w = Mock()
+        ns = session(w, LAKEBASE_PROJECT_ID="demo")
+        execute(
+            cell_containing(
+                "1_optional_create_lakebase_project", "w.postgres.create_project"
+            ),
+            ns,
+        )
+        w.postgres.get_project.assert_called_once_with(name="projects/demo")
+        w.postgres.create_project.assert_not_called()
+
     def test_resource_names_use_username_local_part(self):
         cases = {
             "alex.feng@databricks.com": "alex-feng",

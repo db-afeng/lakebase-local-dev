@@ -22,18 +22,43 @@
 # MAGIC ## Install the Python libraries
 # MAGIC
 # MAGIC The SDK manages workspace resources, Psycopg connects to PostgreSQL, and Alembic
-# MAGIC and SQLAlchemy apply the app's migrations. The SDK and protobuf versions match
-# MAGIC the validated runtime environment.
+# MAGIC and SQLAlchemy apply the app's migrations. Databricks runtimes have different
+# MAGIC protobuf requirements. Read the installed grpcio-status requirement and pass it
+# MAGIC to pip as a constraint so installing the SDK cannot violate that requirement.
 # MAGIC
 # MAGIC This notebook intentionally does not restart Python: a restart inside `%run`
 # MAGIC can interrupt its caller. Start with a fresh Python session. If you already
 # MAGIC imported incompatible library versions, restart Python using the notebook UI
 # MAGIC and run the calling notebook from the beginning. Setup runs before inputs, so
-# MAGIC all input variables are assigned afterward.
+# MAGIC all input variables are assigned afterward. If a previous run changed protobuf,
+# MAGIC this installation repairs its version on disk; restart the notebook Python session
+# MAGIC before rerunning if the old version was already imported.
 
 # COMMAND ----------
 
-# MAGIC %pip install "databricks-sdk==0.167.0" "protobuf==5.29.5" "psycopg[binary,pool]>=3.2.0" alembic sqlalchemy pyyaml
+# Read dependency metadata without importing protobuf or gRPC into this session.
+# The SDK accepts several protobuf major versions; grpcio-status is more restrictive.
+from importlib.metadata import PackageNotFoundError, requires
+import os
+from packaging.requirements import Requirement
+import tempfile
+
+try:
+    _grpc_requirements = requires("grpcio-status") or []
+except PackageNotFoundError:
+    _grpc_requirements = []
+# Keep the runtime's exact compatibility range rather than hard-coding a major version.
+with tempfile.NamedTemporaryFile(
+    mode="w", prefix="datacart-workshop-", suffix=".txt", delete=False
+) as _constraints:
+    for _requirement in _grpc_requirements:
+        if Requirement(_requirement).name == "protobuf":
+            _constraints.write(_requirement + "\n")
+os.environ["DATACART_WORKSHOP_CONSTRAINTS"] = _constraints.name
+
+# COMMAND ----------
+
+# MAGIC %pip install "databricks-sdk==0.167.0" "psycopg[binary,pool]>=3.2.0" alembic sqlalchemy pyyaml --constraint $DATACART_WORKSHOP_CONSTRAINTS
 
 # COMMAND ----------
 

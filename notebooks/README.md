@@ -44,7 +44,17 @@ installs dependencies, imports libraries and constants, locates the repository, 
 authenticates with your workspace identity. Keep it beside notebooks 0–4;
 you do not need to run it separately. It does not restart Python inside `%run`.
 Start from a fresh session; if incompatible libraries were already imported,
-restart Python through the notebook UI and rerun from the beginning.
+restart Python through the notebook UI and rerun from the beginning. Setup constrains
+protobuf using the installed grpcio-status dependency metadata, supporting different
+Databricks runtime versions without forcing an incompatible protobuf major version.
+If an earlier run already imported an incompatible version, restart Python after
+setup repairs the installed packages, then rerun from the beginning.
+
+After teardown, Lakebase can still return a soft-deleted project's metadata during
+retention, while its branches are unavailable. Notebooks 1–3 check this state before
+branch discovery. To start fresh, enter a different `LAKEBASE_PROJECT_ID` in notebook
+0 (or the individual notebooks). To recover retained data instead, explicitly restore
+the project in Lakebase before rerunning. Setup never restores or purges it automatically.
 
 Edit the plain Python variables in the **Your inputs** block near the top of each
 notebook, then run cells in order. There are no widget or notebook task parameters.
@@ -109,6 +119,23 @@ stop them. Use notebook 4 to preview and explicitly delete the app and dedicated
 project when finished, or manage them through the workspace UI. Supplier
 demand and optional loyalty/reviews/promotions are not provisioned. The shared
 demo customer and in-memory cart behavior remain unchanged.
+
+## Validation — 18 November 2026
+
+Fixed discovery of soft-deleted projects: retained metadata no longer counts as
+an active project. Added coverage for creation/reuse and all three discovery
+cells; the 23 local notebook tests pass.
+
+Ran the workshop end to end on Databricks with the fresh project
+`datacart-alex-feng-2`: [successful run](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/989211342127964/run/804091883714681).
+The app reports running, `/api/health` returns HTTP 200, and `/api/dbtest` confirms
+an active database connection and 12 seeded products. The project and app remain
+available for the workshop; the earlier soft-deleted project was left untouched.
+
+After refining setup to constrain protobuf using the runtime's grpcio-status
+requirements, verified compatibility with both SDK and gRPC on serverless client
+4 and on environment version 6 (matching the interactive notebook):
+[environment 6 check](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/415004716921307/run/17832187191144).
 
 ## Validation — 17 November 2026
 

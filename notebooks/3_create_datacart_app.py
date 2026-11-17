@@ -114,7 +114,16 @@ if not re.fullmatch(r"[a-z][a-z0-9-]{1,61}[a-z0-9]", project_id):
 project = f"projects/{project_id}"
 if not re.fullmatch("[a-z][a-z0-9-]*", BRANCH_ID):
     raise ValueError("Enter a branch ID, not a full resource path.")
-w.postgres.get_project(name=project)
+# Deleted projects remain readable during retention, but their branches are unavailable.
+# Stop before database access; recovering old data must be an explicit choice.
+project_resource = w.postgres.get_project(name=project)
+if project_resource.delete_time:
+    raise RuntimeError(
+        f"{project} is soft-deleted (deleted {project_resource.delete_time}; "
+        f"scheduled purge {project_resource.purge_time or 'not reported'}). "
+        "Choose a different LAKEBASE_PROJECT_ID for a fresh workshop, or explicitly "
+        "restore this project in Lakebase before rerunning. No resources were changed."
+    )
 branch = f"{project}/branches/{BRANCH_ID}"
 w.postgres.get_branch(name=branch)
 # Match the SQL database name from its status; the API resource ID can use hyphens.

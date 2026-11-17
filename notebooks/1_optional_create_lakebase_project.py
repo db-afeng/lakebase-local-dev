@@ -116,8 +116,7 @@ if not re.fullmatch(r"[a-z][a-z0-9-]{1,61}[a-z0-9]", project_id):
 project = f"projects/{project_id}"
 # Reuse an existing project without changing it; create only when it is not found.
 try:
-    w.postgres.get_project(name=project)
-    print(f"Reusing {project}")
+    project_resource = w.postgres.get_project(name=project)
 except NotFound:
     # The create operation also provisions the production branch, default database,
     # and primary endpoint. Wait before trying to discover those child resources.
@@ -129,6 +128,16 @@ except NotFound:
         ),
     ).wait()
     print(f"Created {project}")
+else:
+    # get_project also returns retained, deleted projects. They cannot be reused.
+    if project_resource.delete_time:
+        raise RuntimeError(
+            f"{project} is soft-deleted (deleted {project_resource.delete_time}; "
+            f"scheduled purge {project_resource.purge_time or 'not reported'}). "
+            "Choose a different LAKEBASE_PROJECT_ID for a fresh workshop, or explicitly "
+            "restore this project in Lakebase before rerunning. No resources were changed."
+        )
+    print(f"Reusing {project}")
 
 BRANCH_ID = "production"
 DATABASE_NAME = "databricks_postgres"
@@ -154,7 +163,16 @@ if not re.fullmatch(r"[a-z][a-z0-9-]{1,61}[a-z0-9]", project_id):
 project = f"projects/{project_id}"
 if not re.fullmatch("[a-z][a-z0-9-]*", BRANCH_ID):
     raise ValueError("Enter a branch ID, not a full resource path.")
-w.postgres.get_project(name=project)
+# Deleted projects remain readable during retention, but their branches are unavailable.
+# Stop before database access; recovering old data must be an explicit choice.
+project_resource = w.postgres.get_project(name=project)
+if project_resource.delete_time:
+    raise RuntimeError(
+        f"{project} is soft-deleted (deleted {project_resource.delete_time}; "
+        f"scheduled purge {project_resource.purge_time or 'not reported'}). "
+        "Choose a different LAKEBASE_PROJECT_ID for a fresh workshop, or explicitly "
+        "restore this project in Lakebase before rerunning. No resources were changed."
+    )
 branch = f"{project}/branches/{BRANCH_ID}"
 w.postgres.get_branch(name=branch)
 # Match the SQL database name from its status; the API resource ID can use hyphens.
@@ -218,6 +236,7 @@ print(json.dumps(target, indent=2))
 # MAGIC | What you see | What to do |
 # MAGIC | --- | --- |
 # MAGIC | Invalid or empty project ID | Set LAKEBASE_PROJECT_ID in the input block, then rerun the input cell and creation cell |
+# MAGIC | Project is soft-deleted | Choose a different LAKEBASE_PROJECT_ID for a fresh workshop, or explicitly restore the retained project in Lakebase before rerunning. Retention keeps deleted metadata visible. |
 # MAGIC | Project creation permission error | Use an identity allowed to create projects, or ask the workshop administrator to create one |
 # MAGIC | Project exists but expected branch/database is missing | Inspect it in the UI; use its intended existing branch/database in notebooks 2 and 3, or choose a fresh workshop project |
 # MAGIC | Endpoint has no hostname yet | Wait for provisioning in the UI, then rerun the creation/inspection cell |
