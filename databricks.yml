@@ -1,0 +1,24 @@
+bundle:
+  name: datacart-storefront
+  engine: direct
+
+# The Lakebase project is provisioned outside this bundle so its OAuth group
+# role can exist before the app service principal is created. These variables
+# bind the app to that existing project's production resources.
+variables:
+  project_id:
+    description: Existing Lakebase project slug.
+  endpoint_name:
+    description: Full resource path of the project's production read-write endpoint.
+    default: projects/${var.project_id}/branches/production/endpoints/primary
+
+include:
+  - resources/*.yml
+
+targets:
+  dev:
+    default: true
+    mode: development
+    workspace:
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+      host: https://fevm-infomedia-lakebase.cloud.databricks.com

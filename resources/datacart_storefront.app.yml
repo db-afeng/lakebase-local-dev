@@ -1,0 +1,34 @@
+resources:
+  apps:
+    datacart_storefront:
+      name: "storefront-${workspace.current_user.id}"
+      description: "DataCart Storefront — ${workspace.current_user.name.givenName} ${workspace.current_user.name.familyName}"
+      source_code_path: ${workspace.file_path}
+      # The native binding creates the app service principal's login and injects
+      # PGHOST/PGPORT/PGUSER/PGDATABASE/PGSSLMODE. Database sessions authenticate
+      # with the app's OAuth token but use the workspace group's OAuth role below,
+      # so Alembic and runtime-created objects share a stable owner.
+      resources:
+        - name: postgres
+          postgres:
+            branch: projects/${var.project_id}/branches/production
+            database: projects/${var.project_id}/branches/production/databases/databricks-postgres
+            permission: CAN_CONNECT_AND_CREATE
+      # The binding injects PGHOST/PGUSER/PGDATABASE/etc. It does NOT inject the
+      # endpoint resource path, which the app needs to mint short-lived OAuth DB
+      # tokens (generate_database_credential) — tokens expire hourly, so this is
+      # supplied as config, not a static password. DB_SCHEMA names the workshop
+      # schema the storefront reads/writes.
+      config:
+        env:
+          - name: ENDPOINT_NAME
+            value: ${var.endpoint_name}
+          - name: DB_SCHEMA
+            value: ecommerce
+          - name: LAKEBASE_PG_ROLE
+            value: lakebase-app-schema-owner
+      # First deploy must leave the app stopped. Add the newly created app service
+      # principal to the workspace group, then run the app so Alembic can log in
+      # as lakebase-app-schema-owner.
+      lifecycle:
+        started: false
