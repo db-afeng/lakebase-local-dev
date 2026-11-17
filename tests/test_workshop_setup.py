@@ -76,7 +76,7 @@ class WorkshopSetupTest(unittest.TestCase):
         ns.update(APP_NAME=ns["DEFAULT_APP_NAME"])
         with self.assertRaisesRegex(ValueError, "Override APP_NAME"):
             execute(
-                cell_containing("2_create_datacart_app", "expected = apps.AppResource"),
+                cell_containing("3_create_datacart_app", "expected = apps.AppResource"),
                 ns,
             )
         w.apps.get.assert_not_called()
@@ -88,7 +88,7 @@ class WorkshopSetupTest(unittest.TestCase):
         ns = session(w, LAKEBASE_PROJECT_ID="datacart-alex-feng")
         execute(
             cell_containing(
-                "0_optional_create_lakebase_project", "w.postgres.create_project"
+                "1_optional_create_lakebase_project", "w.postgres.create_project"
             ),
             ns,
         )
@@ -111,7 +111,7 @@ class WorkshopSetupTest(unittest.TestCase):
         ns["time"] = Mock()
         ns["time"].monotonic.return_value = 0
         execute(
-            cell_containing("2_create_datacart_app", "expected = apps.AppResource"), ns
+            cell_containing("3_create_datacart_app", "expected = apps.AppResource"), ns
         )
         self.assertEqual(ns["client_id"], "ready-client-id")
         self.assertEqual(w.apps.get.call_count, 3)
@@ -132,7 +132,7 @@ class WorkshopSetupTest(unittest.TestCase):
         ns["time"].monotonic.side_effect = [0, 301]
         with self.assertRaisesRegex(TimeoutError, "within 5 minutes"):
             execute(
-                cell_containing("2_create_datacart_app", "expected = apps.AppResource"),
+                cell_containing("3_create_datacart_app", "expected = apps.AppResource"),
                 ns,
             )
         w.apps.start.assert_not_called()
@@ -162,7 +162,7 @@ class WorkshopSetupTest(unittest.TestCase):
             BRANCH_ID="production",
             DATABASE_NAME="databricks_postgres",
         )
-        execute(cell_containing("1_prepare_schema_and_seed", "databases = list"), ns)
+        execute(cell_containing("2_prepare_schema_and_seed", "databases = list"), ns)
         self.assertTrue(ns["target"]["database"].endswith("/databricks-postgres"))
         self.assertEqual(ns["target"]["database_name"], "databricks_postgres")
         self.assertEqual(ns["target"]["host"], "db.example")
@@ -178,7 +178,7 @@ class WorkshopSetupTest(unittest.TestCase):
         ):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 execute(
-                    cell_containing("1_prepare_schema_and_seed", "databases = list"),
+                    cell_containing("2_prepare_schema_and_seed", "databases = list"),
                     session(Mock(), LAKEBASE_PROJECT_ID=value),
                 )
 
@@ -195,22 +195,88 @@ class WorkshopSetupTest(unittest.TestCase):
         )
         with self.assertRaisesRegex(RuntimeError, "different database"):
             execute(
-                cell_containing("2_create_datacart_app", "expected = apps.AppResource"),
+                cell_containing("3_create_datacart_app", "expected = apps.AppResource"),
                 ns,
             )
         w.apps.create.assert_not_called()
         w.apps.create_update.assert_not_called()
         w.apps.deploy.assert_not_called()
 
+    def test_run_all_orders_setup_steps_and_preserves_custom_inputs(self):
+        ns = session(Mock())
+        configured = {
+            "LAKEBASE_PROJECT_ID": "custom-workshop-project",
+            "BRANCH_ID": "feature-branch",
+            "DATABASE_NAME": "storefront",
+            "APP_NAME": "custom-app",
+            "SOURCE_PATH": "/Workspace/Users/example/custom-releases",
+        }
+        steps = []
+        for cell in (
+            (NOTEBOOKS / "0_run_all.py").read_text().split("# COMMAND ----------")
+        ):
+            if "# MAGIC %run ./setup" in cell or "# MAGIC %md" in cell:
+                continue
+            if "# MAGIC %run ./" in cell:
+                name = cell.split("# MAGIC %run ./", 1)[1].strip()
+                steps.append(name)
+                child_cells = code_cells(name)
+                config = next(c for c in child_cells if "LAKEBASE_PROJECT_ID = (" in c)
+                execute(config, ns)
+                execute(next(c for c in child_cells if "globals().pop" in c), ns)
+                for key in (
+                    "LAKEBASE_PROJECT_ID",
+                    "BRANCH_ID",
+                    "DATABASE_NAME",
+                    "APP_NAME",
+                    "SOURCE_PATH",
+                ):
+                    if key in config:
+                        self.assertEqual(ns[key], configured[key])
+                self.assertNotIn("_DATACART_NEXT_INPUTS", ns)
+                ns["app"] = apps.App(name="custom-app", url="https://example.com")
+                ns["target"] = {
+                    "project": "projects/custom-workshop-project",
+                    "database": "storefront",
+                }
+            elif "# MAGIC" not in cell and cell.strip():
+                execute(cell, ns)
+                if "LAKEBASE_PROJECT_ID = DEFAULT_PROJECT_ID" in cell:
+                    ns.update(configured)
+        self.assertEqual(
+            steps,
+            [
+                "1_optional_create_lakebase_project",
+                "2_prepare_schema_and_seed",
+                "3_create_datacart_app",
+            ],
+        )
+        self.assertNotIn("_DATACART_RUN_ALL_CONFIG", ns)
+
+    def test_child_input_overrides_are_consumed_only_once(self):
+        ns = session(
+            Mock(), _DATACART_NEXT_INPUTS={"LAKEBASE_PROJECT_ID": "custom-project"}
+        )
+        cells = code_cells("1_optional_create_lakebase_project")
+        config = next(c for c in cells if "LAKEBASE_PROJECT_ID = (" in c)
+        override = next(c for c in cells if "globals().pop" in c)
+        execute(config, ns)
+        execute(override, ns)
+        self.assertEqual(ns["LAKEBASE_PROJECT_ID"], "custom-project")
+        execute(config, ns)
+        execute(override, ns)
+        self.assertEqual(ns["LAKEBASE_PROJECT_ID"], ns["DEFAULT_PROJECT_ID"])
+
     def test_shared_setup_and_procedural_notebook_inputs(self):
         notebooks = sorted(NOTEBOOKS.glob("*.py"))
         self.assertEqual(
             [p.stem for p in notebooks],
             [
-                "0_optional_create_lakebase_project",
-                "1_prepare_schema_and_seed",
-                "2_create_datacart_app",
-                "3_teardown_datacart",
+                "0_run_all",
+                "1_optional_create_lakebase_project",
+                "2_prepare_schema_and_seed",
+                "3_create_datacart_app",
+                "4_teardown_datacart",
                 "setup",
             ],
         )
@@ -262,11 +328,11 @@ class WorkshopSetupTest(unittest.TestCase):
                 if isinstance(node, ast.Assign)
             }
             expected = {"LAKEBASE_PROJECT_ID"}
-            if notebook.name.startswith(("1", "2")):
+            if notebook.name.startswith(("0", "2", "3")):
                 expected |= {"BRANCH_ID", "DATABASE_NAME"}
-            if notebook.name.startswith("2"):
+            if notebook.name.startswith(("0", "3")):
                 expected |= {"APP_NAME", "SOURCE_PATH"}
-            if notebook.name.startswith("3"):
+            if notebook.name.startswith("4"):
                 expected |= {"APP_NAME", "DRY_RUN"}
                 self.assertIn("DRY_RUN = True", config)
             self.assertEqual(names, expected)
@@ -297,8 +363,8 @@ class WorkshopSetupTest(unittest.TestCase):
         ns = session(
             w, LAKEBASE_PROJECT_ID=project, APP_NAME="demo-app", DRY_RUN=dry_run
         )
-        execute(cell_containing("3_teardown_datacart", "plan ="), ns)
-        execute(cell_containing("3_teardown_datacart", "w.apps.delete"), ns)
+        execute(cell_containing("4_teardown_datacart", "plan ="), ns)
+        execute(cell_containing("4_teardown_datacart", "w.apps.delete"), ns)
         return ns["plan"]
 
     def test_teardown_preview_never_deletes(self):
@@ -392,10 +458,10 @@ class WorkshopSetupTest(unittest.TestCase):
     def test_teardown_input_change_requires_new_preview(self):
         w = self.teardown_client()
         ns = session(w, LAKEBASE_PROJECT_ID="demo", APP_NAME="demo-app", DRY_RUN=True)
-        execute(cell_containing("3_teardown_datacart", "plan ="), ns)
+        execute(cell_containing("4_teardown_datacart", "plan ="), ns)
         ns["DRY_RUN"] = False
         with self.assertRaisesRegex(RuntimeError, "Inputs changed"):
-            execute(cell_containing("3_teardown_datacart", "w.apps.delete"), ns)
+            execute(cell_containing("4_teardown_datacart", "w.apps.delete"), ns)
         w.apps.delete.assert_not_called()
         w.postgres.delete_project.assert_not_called()
 

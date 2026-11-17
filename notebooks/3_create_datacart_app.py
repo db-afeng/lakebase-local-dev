@@ -1,17 +1,17 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 2 · Deploy DataCart Storefront as a Databricks App
+# MAGIC # 3 · Deploy DataCart Storefront as a Databricks App
 # MAGIC
 # MAGIC **Workshop goal:** connect a working web application to the Lakebase database you
 # MAGIC prepared. You will select that database, choose an app name, build the React
 # MAGIC frontend, deploy the FastAPI backend, and complete a purchase in the browser.
 # MAGIC
-# MAGIC Start here after **1_prepare_schema_and_seed** completes. The project can have
-# MAGIC been created through clickops or optional notebook 0; you only need its project ID.
+# MAGIC Start here after **2_prepare_schema_and_seed** completes. The project can have
+# MAGIC been created through clickops or optional notebook 1; you only need its project ID.
 # MAGIC
 # MAGIC ### What you need
 # MAGIC
-# MAGIC - The same project, branch, and database used in notebook 1.
+# MAGIC - The same project, branch, and database used in notebook 2.
 # MAGIC - Permission to create Databricks Apps and bind the selected database resource.
 # MAGIC - Database permissions to create the app's OAuth role if needed and grant it membership in the storefront owner role.
 # MAGIC - Python 3.12+ compute with **Node.js 20+**, and network access to Lakebase and package registries.
@@ -51,7 +51,7 @@
 # MAGIC display name or PostgreSQL hostname. IDs have 3–63 lowercase letters, digits, or
 # MAGIC hyphens, start with a letter, and end with a letter or digit.
 # MAGIC
-# MAGIC Use the same destination in notebooks 1 and 2. Keep `BRANCH_ID = "production"`
+# MAGIC Use the same destination in notebooks 2 and 3. Keep `BRANCH_ID = "production"`
 # MAGIC and `DATABASE_NAME = "databricks_postgres"` for a new project, or enter the
 # MAGIC existing branch and SQL database name you intend to use.
 # MAGIC
@@ -76,6 +76,20 @@ APP_NAME = (
     DEFAULT_APP_NAME  # Override if this name is taken or longer than 30 characters.
 )
 SOURCE_PATH = ""  # Optional: blank uses your workspace user directory.
+
+# COMMAND ----------
+
+# Notebook 0 passes its settings in the shared %run session. Consume them once
+# so a later standalone run returns to the editable defaults above.
+if "_DATACART_NEXT_INPUTS" in globals():
+    _step_inputs = globals().pop("_DATACART_NEXT_INPUTS")
+    LAKEBASE_PROJECT_ID = _step_inputs["LAKEBASE_PROJECT_ID"]
+    BRANCH_ID = _step_inputs["BRANCH_ID"]
+    DATABASE_NAME = _step_inputs["DATABASE_NAME"]
+    APP_NAME = _step_inputs["APP_NAME"]
+    SOURCE_PATH = _step_inputs["SOURCE_PATH"]
+    del _step_inputs
+
 
 # COMMAND ----------
 
@@ -153,7 +167,7 @@ print(json.dumps(target, indent=2))
 # MAGIC The suffix is the part before `@`, lowercased with unsupported characters replaced
 # MAGIC by hyphens and edge hyphens trimmed. No hash or truncation is used. It checks that
 # MAGIC the migration revision and customer ID 1 exist; if either check fails, complete
-# MAGIC notebook 1 before deploying.
+# MAGIC notebook 2 before deploying.
 # MAGIC
 # MAGIC An existing app is reused only when its database binding matches the selected
 # MAGIC branch and database. Choose another name if that app belongs to a different setup.
@@ -201,9 +215,9 @@ del credential
 with conn:
     assert conn.execute(
         "SELECT version_num FROM ecommerce.alembic_version"
-    ).fetchone(), "Run notebook 1 first."
+    ).fetchone(), "Run notebook 2 first."
     assert conn.execute("SELECT id FROM ecommerce.customers WHERE id=1").fetchone(), (
-        "Run the seed cell in notebook 1."
+        "Run the seed cell in notebook 2."
     )
 
 # COMMAND ----------
@@ -223,7 +237,7 @@ with conn:
 # MAGIC
 # MAGIC It then grants that PostgreSQL login membership in
 # MAGIC `datacart_storefront_owner`. Database sessions assume the owner role using
-# MAGIC `PGOPTIONS`, so the app can use and migrate the objects created in notebook 1.
+# MAGIC `PGOPTIONS`, so the app can use and migrate the objects created in notebook 2.
 # MAGIC This avoids needing a workspace SCIM group.
 # MAGIC
 # MAGIC ### B. Build and stage the application
@@ -360,7 +374,7 @@ with conn:
                 )
             ),
         ).wait()
-    # Let app sessions assume the same schema owner that notebook 1 used.
+    # Let app sessions assume the same schema owner that notebook 2 used.
     conn.execute(
         sql.SQL("GRANT {} TO {}").format(
             sql.Identifier(OWNER_ROLE), sql.Identifier(client_id)
@@ -405,7 +419,7 @@ with tempfile.TemporaryDirectory(prefix="datacart-app-") as temporary:
         node = shutil.which("node")
         if not node:
             raise RuntimeError(
-                "Node.js 20+ is required. Install Node in your compute environment, then rerun notebook 2."
+                "Node.js 20+ is required. Install Node in your compute environment, then rerun notebook 3."
             )
         major = int(
             subprocess.check_output([node, "--version"], text=True)
@@ -563,7 +577,7 @@ print("Database:", target["database"])
 # MAGIC
 # MAGIC | What you see | What to do |
 # MAGIC | --- | --- |
-# MAGIC | Database preflight fails | Run notebook 1 against the same project, branch, and database |
+# MAGIC | Database preflight fails | Run notebook 2 against the same project, branch, and database |
 # MAGIC | App name already uses a different database | Choose a new app name; the cell will not replace that binding |
 # MAGIC | Node.js 20+ is required | Use compute with Node.js 20+ available, then rerun deployment |
 # MAGIC | `Exec format error` from Node | The installed Node binary cannot run on this compute. Use a compatible Node.js 20+ installation for its CPU architecture; the validation run succeeded on a platform retry |
@@ -600,6 +614,6 @@ print("Database:", target["database"])
 # MAGIC that uses it. Keep the project and app if you want to continue experimenting.
 # MAGIC
 # MAGIC Stopping notebook compute does **not** stop the app or Lakebase compute. When
-# MAGIC finished, use **3_teardown_datacart** to preview and delete the app and dedicated
+# MAGIC finished, use **4_teardown_datacart** to preview and delete the app and dedicated
 # MAGIC project, or manage them through the workspace UI. Review the selected resources
 # MAGIC before deleting them.

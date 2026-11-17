@@ -2,7 +2,7 @@
 # MAGIC %md
 # MAGIC # Shared workshop setup
 # MAGIC
-# MAGIC Notebooks 0, 1, 2, and 3 run this notebook with `%run ./setup` before their input
+# MAGIC Notebooks 0–4 run this notebook with `%run ./setup` before their input
 # MAGIC variables. You do not need to run it separately. `%run` shares `ROOT`, library imports,
 # MAGIC constants, default resource names, and `w` with the calling notebook; `dbutils.notebook.run` would use a separate
 # MAGIC session and is not a substitute.
@@ -15,7 +15,7 @@
 # MAGIC Importing only the notebooks will not work.
 # MAGIC
 # MAGIC Attach Python 3.12+ compute with network access to Lakebase and the package
-# MAGIC registries. Notebook 2 also needs Node.js 20+; notebook 2 installs npm if needed.
+# MAGIC registries. Notebook 3 also needs Node.js 20+; notebook 3 installs npm if needed.
 # MAGIC Authentication uses the identity running the notebook. No local CLI profile,
 # MAGIC token, or `.env.lakebase` file needs to be copied into the workspace.
 # MAGIC
@@ -42,7 +42,7 @@
 # MAGIC
 # MAGIC Find the repository from this notebook's working directory, import the libraries,
 # MAGIC and create a workspace client. Resource operations are written directly in
-# MAGIC notebooks 0–3 so you can inspect each step. This only initializes the
+# MAGIC notebooks 1–4 so you can inspect each step. This only initializes the
 # MAGIC session; it does not create projects, change the database, or deploy an app.
 # MAGIC
 # MAGIC If repository discovery fails, open the notebook inside the complete repository.

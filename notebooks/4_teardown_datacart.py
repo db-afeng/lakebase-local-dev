@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 3 · Tear down DataCart Storefront
+# MAGIC # 4 · Tear down DataCart Storefront
 # MAGIC
 # MAGIC **Workshop goal:** remove the Databricks App and the Lakebase project used for
 # MAGIC this workshop when you have finished exploring the storefront.
@@ -34,9 +34,9 @@
 # MAGIC %md
 # MAGIC ## Your inputs
 # MAGIC
-# MAGIC Enter the project ID used in notebooks 0–2 and the **exact app name printed by
-# MAGIC notebook 2**. A full `projects/<id>` path or the project UUID is accepted. The app name is deliberately
-# MAGIC required, including when notebook 2 generated it from your username. Existing
+# MAGIC Enter the project ID used in notebooks 1–3 and the **exact app name printed by
+# MAGIC notebook 3**. A full `projects/<id>` path or the project UUID is accepted. The app name is deliberately
+# MAGIC required, including when notebook 3 generated it from your username.
 # MAGIC A UUID is resolved to its readable project resource ID before checking bindings.
 # MAGIC Existing resources keep their original names; copy the names actually used to create them.
 # MAGIC
@@ -47,7 +47,7 @@
 # COMMAND ----------
 
 LAKEBASE_PROJECT_ID = ""  # Required: the dedicated workshop project to delete.
-APP_NAME = ""  # Required: copy the exact name printed by notebook 2.
+APP_NAME = ""  # Required: copy the exact name printed by notebook 3.
 DRY_RUN = True  # Preview first; set False only when ready to delete both resources.
 
 # COMMAND ----------
@@ -117,7 +117,7 @@ print(f"Selected project: {project}")
 APP_NAME = APP_NAME.strip()
 if not re.fullmatch("[a-z][a-z0-9-]{0,28}[a-z0-9]", APP_NAME):
     raise ValueError(
-        "Enter the exact app name from notebook 2 (2–30 lowercase letters, digits, hyphens)."
+        "Enter the exact app name from notebook 3 (2–30 lowercase letters, digits, hyphens)."
     )
 if type(DRY_RUN) is not bool:
     raise ValueError("DRY_RUN must be the Python boolean True or False.")

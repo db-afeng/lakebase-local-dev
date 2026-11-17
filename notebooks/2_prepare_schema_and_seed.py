@@ -1,13 +1,13 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 1 · Build the storefront database and load sample data
+# MAGIC # 2 · Build the storefront database and load sample data
 # MAGIC
 # MAGIC **Workshop goal:** turn an existing Lakebase project into a usable DataCart
 # MAGIC storefront database. You will apply the application's versioned schema migrations,
 # MAGIC load a small sample catalog and order history, and verify the result.
 # MAGIC
 # MAGIC You may start here after creating your project through the Lakebase UI.
-# MAGIC **Notebook 0 is optional.** This notebook accepts your existing project ID and
+# MAGIC **Notebook 1 is optional.** This notebook accepts your existing project ID and
 # MAGIC does not create a new project.
 # MAGIC
 # MAGIC ### What you need
@@ -18,7 +18,7 @@
 # MAGIC - A dedicated workshop database: sample records use fixed IDs, including customer ID 1.
 # MAGIC
 # MAGIC **Outcome:** an `ecommerce` schema containing customers, products, inventory,
-# MAGIC orders, and order items, ready for the app deployed in notebook 2.
+# MAGIC orders, and order items, ready for the app deployed in notebook 3.
 
 # COMMAND ----------
 
@@ -48,7 +48,7 @@
 # MAGIC display name or PostgreSQL hostname. IDs have 3–63 lowercase letters, digits, or
 # MAGIC hyphens, start with a letter, and end with a letter or digit.
 # MAGIC
-# MAGIC Use the same destination in notebooks 1 and 2. Keep `BRANCH_ID = "production"`
+# MAGIC Use the same destination in notebooks 2 and 3. Keep `BRANCH_ID = "production"`
 # MAGIC and `DATABASE_NAME = "databricks_postgres"` for a new project, or enter the
 # MAGIC existing branch and SQL database name you intend to use.
 
@@ -59,6 +59,18 @@ LAKEBASE_PROJECT_ID = (
 )
 BRANCH_ID = "production"
 DATABASE_NAME = "databricks_postgres"
+
+# COMMAND ----------
+
+# Notebook 0 passes its settings in the shared %run session. Consume them once
+# so a later standalone run returns to the editable defaults above.
+if "_DATACART_NEXT_INPUTS" in globals():
+    _step_inputs = globals().pop("_DATACART_NEXT_INPUTS")
+    LAKEBASE_PROJECT_ID = _step_inputs["LAKEBASE_PROJECT_ID"]
+    BRANCH_ID = _step_inputs["BRANCH_ID"]
+    DATABASE_NAME = _step_inputs["DATABASE_NAME"]
+    del _step_inputs
+
 
 # COMMAND ----------
 
@@ -143,7 +155,7 @@ print(json.dumps(target, indent=2))
 # MAGIC | --- | --- |
 # MAGIC | Your workspace identity | Authenticates this notebook and prepares the database |
 # MAGIC | `datacart_storefront_owner` | Owns the storefront objects; `NOLOGIN` means it cannot authenticate directly |
-# MAGIC | App service principal | Authenticates the app; notebook 2 grants it membership in the owner role |
+# MAGIC | App service principal | Authenticates the app; notebook 3 grants it membership in the owner role |
 # MAGIC
 # MAGIC Run the next cell to prepare the owner role and your membership. No workspace
 # MAGIC SCIM group is needed. The cell refuses to take over an existing `ecommerce`
@@ -494,9 +506,9 @@ with conn:
 # MAGIC | Legacy tables exist without Alembic state | Use a fresh workshop database or an administrator-reviewed migration plan |
 # MAGIC | Seed IDs or email addresses conflict | Use a dedicated workshop database rather than overwriting unrelated records |
 # MAGIC
-# MAGIC ## Checkpoint · Continue to notebook 2
+# MAGIC ## Checkpoint · Continue to notebook 3
 # MAGIC
-# MAGIC Open **2_create_datacart_app** and use the **same project ID, branch ID, and
+# MAGIC Open **3_create_datacart_app** and use the **same project ID, branch ID, and
 # MAGIC PostgreSQL database name**. The next notebook grants the app its database access,
 # MAGIC builds the frontend, and deploys the storefront.
 # MAGIC

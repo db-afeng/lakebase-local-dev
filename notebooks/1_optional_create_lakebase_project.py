@@ -1,6 +1,6 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 0 · Create your Lakebase project — optional
+# MAGIC # 1 · Create your Lakebase project — optional
 # MAGIC
 # MAGIC **Workshop goal:** prepare the database infrastructure that DataCart Storefront
 # MAGIC will use. By the end of this notebook, you will have a Lakebase Autoscaling
@@ -8,17 +8,18 @@
 # MAGIC
 # MAGIC | Notebook | What you will do |
 # MAGIC | --- | --- |
-# MAGIC | **0 · Optional** | Create the Lakebase project, or use the workspace UI |
-# MAGIC | **1 · Database setup** | Apply Alembic migrations and load storefront sample data |
-# MAGIC | **2 · App deployment** | Build and deploy DataCart with access to that database |
-# MAGIC | **3 · Teardown** | Preview cleanup, then delete the app and dedicated project |
+# MAGIC | **0 · Run all** | Run project, database, and app setup in order |
+# MAGIC | **1 · Optional** | Create the Lakebase project, or use the workspace UI |
+# MAGIC | **2 · Database setup** | Apply Alembic migrations and load storefront sample data |
+# MAGIC | **3 · App deployment** | Build and deploy DataCart with access to that database |
+# MAGIC | **4 · Teardown** | Preview cleanup, then delete the app and dedicated project |
 # MAGIC
 # MAGIC ## Choose your starting point
 # MAGIC
 # MAGIC **Prefer the workspace UI?** Open Lakebase in your Databricks workspace and create
 # MAGIC an **Autoscaling** project. Keep the default `production` branch,
 # MAGIC `databricks_postgres` database, and read-write compute. Wait for provisioning,
-# MAGIC copy the project ID, and go directly to **1_prepare_schema_and_seed**.
+# MAGIC copy the project ID, and go directly to **2_prepare_schema_and_seed**.
 # MAGIC You can skip every execution cell in this notebook.
 # MAGIC
 # MAGIC **Prefer a notebook?** Continue below as a workspace user with permission to
@@ -60,6 +61,16 @@ LAKEBASE_PROJECT_ID = (
 
 # COMMAND ----------
 
+# Notebook 0 passes its settings in the shared %run session. Consume them once
+# so a later standalone run returns to the editable defaults above.
+if "_DATACART_NEXT_INPUTS" in globals():
+    _step_inputs = globals().pop("_DATACART_NEXT_INPUTS")
+    LAKEBASE_PROJECT_ID = _step_inputs["LAKEBASE_PROJECT_ID"]
+    del _step_inputs
+
+
+# COMMAND ----------
+
 # MAGIC %md
 # MAGIC ## Understand the resources you are creating
 # MAGIC
@@ -90,7 +101,7 @@ LAKEBASE_PROJECT_ID = (
 # MAGIC Reusing a project keeps its existing settings and display name.
 # MAGIC
 # MAGIC This step creates billable infrastructure when it creates a new project. It does
-# MAGIC not create storefront tables or insert data; notebook 1 handles those tasks.
+# MAGIC not create storefront tables or insert data; notebook 2 handles those tasks.
 
 # COMMAND ----------
 
@@ -114,9 +125,7 @@ except NotFound:
         project_id=project.split("/")[-1],
         project=postgres.Project(
             # Use the same cleaned email suffix as the default resource names.
-            spec=postgres.ProjectSpec(
-                display_name=f"DataCart Storefront {USER_SUFFIX}"
-            )
+            spec=postgres.ProjectSpec(display_name=f"DataCart Storefront {USER_SUFFIX}")
         ),
     ).wait()
     print(f"Created {project}")
@@ -132,7 +141,7 @@ DATABASE_NAME = "databricks_postgres"
 # MAGIC The next cell reads the initial branch, finds the database by its SQL name, and
 # MAGIC resolves the read-write endpoint. Database API IDs and SQL names can differ.
 # MAGIC If the project has no default branch/database, select its existing destination
-# MAGIC explicitly in notebooks 1 and 2.
+# MAGIC explicitly in notebooks 2 and 3.
 
 # COMMAND ----------
 
@@ -210,14 +219,14 @@ print(json.dumps(target, indent=2))
 # MAGIC | --- | --- |
 # MAGIC | Invalid or empty project ID | Set LAKEBASE_PROJECT_ID in the input block, then rerun the input cell and creation cell |
 # MAGIC | Project creation permission error | Use an identity allowed to create projects, or ask the workshop administrator to create one |
-# MAGIC | Project exists but expected branch/database is missing | Inspect it in the UI; use its intended existing branch/database in notebooks 1 and 2, or choose a fresh workshop project |
+# MAGIC | Project exists but expected branch/database is missing | Inspect it in the UI; use its intended existing branch/database in notebooks 2 and 3, or choose a fresh workshop project |
 # MAGIC | Endpoint has no hostname yet | Wait for provisioning in the UI, then rerun the creation/inspection cell |
 # MAGIC
-# MAGIC ## Continue to notebook 1
+# MAGIC ## Continue to notebook 2
 # MAGIC
-# MAGIC Open **1_prepare_schema_and_seed** and enter this same project ID. That notebook
+# MAGIC Open **2_prepare_schema_and_seed** and enter this same project ID. That notebook
 # MAGIC works equally with a project created here or through clickops.
 # MAGIC
 # MAGIC Keep the project while completing the workshop. Finishing a notebook does not
-# MAGIC stop Lakebase compute. After the workshop, use **3_teardown_datacart** or the
+# MAGIC stop Lakebase compute. After the workshop, use **4_teardown_datacart** or the
 # MAGIC workspace UI to remove your resources when you no longer need them.

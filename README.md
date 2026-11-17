@@ -10,13 +10,13 @@ Python 3, and `jq`. No Databricks credentials are needed for local PostgreSQL.
 
 ## Prepare a Databricks workspace
 
-The four [workspace setup notebooks](notebooks/README.md), backed by a shared
-`setup` notebook and editable Python input variables, create an optional
-Lakebase project (notebook 0), apply Alembic and seed core storefront data
-(notebook 1), build/deploy the Databricks App (notebook 2), and tear down the app
-and dedicated project (notebook 3, with a preview by default). You can skip
-notebook 0 and enter a project created through the workspace UI in notebooks 1
-and 2. Import the complete repository so supporting files remain available.
+Start with [notebook 0, Run all](notebooks/0_run_all.py), to create/reuse the
+Lakebase project, apply migrations and seed data, and deploy the app with one
+Python input block. For a guided workshop, run the individual notebooks instead:
+project creation (1, optional), schema and seed (2), and app deployment (3).
+Notebook 4 previews and explicitly tears down the app and dedicated project.
+You can use an existing clickops project in notebook 0 or start directly at 2.
+Import the complete repository so supporting files remain available.
 
 ## Local development with Docker
 
@@ -111,7 +111,7 @@ LAKEBASE_PROJECT_NAME=<project-id> LAKEBASE_PROFILE=<profile> make refresh-lakeb
 Stop either development mode with `make dev-down`. Development branches expire
 after six hours; stopping Compose does not delete one immediately.
 
-Local PostgreSQL starts with the schema only. Notebook 1 seeds the selected
+Local PostgreSQL starts with the schema only. Notebook 2 seeds the selected
 Lakebase database; development branches inherit their parent branch's data.
 
 ### Optional post-checkout provisioning

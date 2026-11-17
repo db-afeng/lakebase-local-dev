@@ -3,27 +3,32 @@
 Each notebook is a guided workshop with prerequisites, input instructions,
 Markdown explanations before execution steps, inline comments explaining the
 API calls, SQL, rerun checks, and build operations, expected results, checkpoints,
-and troubleshooting. Notebook 2 finishes with a storefront checkout exercise
-and an optional transition to local development. Notebook 3 tears down the app
+and troubleshooting. Notebook 3 finishes with a storefront checkout exercise
+and an optional transition to local development. Notebook 4 tears down the app
 and the dedicated Lakebase project when the workshop is complete.
 
 Import or clone the **complete repository** into a Databricks Workspace Git folder
 (or workspace directory). Importing only the notebooks is insufficient:
 they use the actual Alembic migrations and application source. All workshop
-resource operations are written as procedural code directly in notebooks 0–3.
-Run on Python 3.12+ compute with network access to Lakebase and the package registries. Notebook 2 additionally needs Node.js 20+; npm is
+resource operations are written as procedural code directly in notebooks 1–4.
+Run on Python 3.12+ compute with network access to Lakebase and the package registries. Notebook 3 additionally needs Node.js 20+; npm is
 fetched with an integrity check if missing.
 
-1. **Optional: `0_optional_create_lakebase_project`** creates a Lakebase Autoscaling
+1. **`0_run_all`** runs notebooks 1, 2, and 3 in order with a single Python input
+   block. Choose **Run all** to create/reuse the project, migrate/seed, and deploy.
+   `%run` executes the procedural workshop notebooks in the same Python session;
+   each child consumes its input overrides once. The child notebooks remain usable
+   independently, and teardown is never part of this route.
+2. **Optional: `1_optional_create_lakebase_project`** creates a Lakebase Autoscaling
    project. Prefer clickops if desired: create a project with its default
    `production` branch, read-write endpoint, and `databricks_postgres` database. New
    projects display as `DataCart Storefront your-cleaned-username`.
-2. **`1_prepare_schema_and_seed`** accepts your project ID, applies Alembic, and
+3. **`2_prepare_schema_and_seed`** accepts your project ID, applies Alembic, and
    seeds 5 customers, 12 products, 12 inventory rows, 6 orders, and 6 order items.
-3. **`2_create_datacart_app`** accepts the same project ID, builds the React app,
+4. **`3_create_datacart_app`** accepts the same project ID, builds the React app,
    creates a Databricks App, waits up to five minutes for its service principal,
    binds its database, grants access, and deploys it.
-4. **`3_teardown_datacart`** previews cleanup, then deletes the app followed by the
+5. **`4_teardown_datacart`** previews cleanup, then deletes the app followed by the
    entire Lakebase project when you set `DRY_RUN = False`. Enter the exact app name
    and project ID used in the workshop. A UI project UUID is resolved to its
    readable resource ID before checking the app binding; mismatches show both
@@ -36,21 +41,21 @@ fetched with an integrity check if missing.
 
 Each workshop notebook begins with `%run ./setup`. The shared `setup` notebook
 installs dependencies, imports libraries and constants, locates the repository, and
-authenticates with your workspace identity. Keep it beside notebooks 0, 1, 2, and 3;
+authenticates with your workspace identity. Keep it beside notebooks 0–4;
 you do not need to run it separately. It does not restart Python inside `%run`.
 Start from a fresh session; if incompatible libraries were already imported,
 restart Python through the notebook UI and rerun from the beginning.
 
 Edit the plain Python variables in the **Your inputs** block near the top of each
 notebook, then run cells in order. There are no widget or notebook task parameters.
-If you change an input, rerun its block and the cells below it. Notebooks 1 and 2
-also accept an existing branch ID and PostgreSQL database name. Notebook 2 has
+If you change an input, rerun its block and the cells below it. Notebooks 2 and 3
+also accept an existing branch ID and PostgreSQL database name. Notebook 3 has
 editable `APP_NAME` and `SOURCE_PATH` variables. Shared setup derives the suffix
 from the part of your Databricks username before `@`, lowercases it, replaces each
 unsupported character with `-`, and trims edge hyphens. For example,
 `alex.feng@example.com` gives project `datacart-alex-feng` and app
 `datacart-storefront-alex-feng`. These defaults are assigned in the input blocks
-of notebooks 0–2; override the project ID for an existing clickops project.
+of notebooks 0–3; override the project ID for an existing clickops project.
 A blank `SOURCE_PATH` uses a release directory under your workspace user directory.
 
 The suffix is never hashed or truncated. Project IDs allow up to 63 characters;
@@ -58,7 +63,7 @@ app names allow 30, so the `datacart-storefront-` prefix leaves 11 characters fo
 the suffix. Override an overlong default with a shorter valid input. Different
 users can normalize to the same suffix, including users from different email
 domains; use explicit names in that case. Existing resources are not renamed;
-notebook 3 still requires the exact names used when they were created. Resource paths are discovered
+notebook 4 still requires the exact names used when they were created. Resource paths are discovered
 from the API, so the database's API ID need not match its SQL name. Leave the
 branch default only when you intend to use `production`.
 
@@ -100,34 +105,44 @@ Your OAuth login needs to exist in the branch and retain membership in the owner
 role. Then run `make dev-lakebase`; it generates `.env.lakebase` automatically.
 
 Project/endpoint and app compute can incur costs. Stopping the notebook does not
-stop them. Use notebook 3 to preview and explicitly delete the app and dedicated
+stop them. Use notebook 4 to preview and explicitly delete the app and dedicated
 project when finished, or manage them through the workspace UI. Supplier
 demand and optional loyalty/reviews/promotions are not provisioned. The shared
 demo customer and in-memory cart behavior remain unchanged.
 
 ## Validation — 17 November 2026
 
-Validated with the explicitly selected `lakebase-workshop` profile on Azure:
+Validated with the explicitly selected `lakebase-workshop` profile on Azure.
+Older run histories retain the notebook numbers used before the new run-all entry
+point was added; references below use the current numbering.
+
+- Ran `0_run_all` end to end with an explicit project path override:
+  [run-all validation](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/416103270395539/run/122659805277128).
+  Confirmed sequential project reuse, migrations/seeding, app build/deployment,
+  and preservation of the caller's input values across nested `%run` calls.
+  Teardown was not invoked. The first attempt hit the documented Node executable
+  error; the platform retry succeeded. The temporary validation notebook was
+  removed after execution.
 
 - Connected with `databricks ssh connect` and executed the exported notebook
   sources on workspace serverless compute.
 - Before the shared-setup/input-variable refactor, ran all three notebooks as native Databricks notebook tasks. All succeeded:
   [validation run](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/495284158507344/run/1048237150044685).
 - After extracting shared setup and replacing inputs with Python variables, ran
-  the notebook 1 prefix through `%run ./setup`, dependency installation, variable
+  the notebook 2 prefix through `%run ./setup`, dependency installation, variable
   assignment, and read-only database discovery on serverless compute. All passed:
   [shared setup validation](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/726495044581190/run/942640430187583).
   This refactor check did not rerun migrations, seeding, or app deployment.
-- Ran notebook 3 in preview mode against the existing validation resources:
+- Ran notebook 4 in preview mode against the existing validation resources:
   [teardown preview validation](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/74408454281704/run/570817594041063).
   Confirmed the app/project and branch inventory with `DRY_RUN = True`. Deletion
   order, mismatched bindings, partial reruns, and failure handling were tested
   with mocks locally; no live resources were deleted.
 - After moving all resource logic into procedural notebook cells and removing the
-  Python helper module locally and from the workspace, ran notebooks 0–3:
+  Python helper module locally and from the workspace, ran notebooks 1–4:
   [procedural notebook validation](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/59584224702722/run/952873784587894).
   Project reuse, migrations/seeding, app build/deployment, and teardown preview all
-  passed. No app or project was deleted. Notebook 2 initially failed because the
+  passed. No app or project was deleted. Notebook 3 initially failed because the
   runtime's `/usr/local/bin/node` raised `Exec format error`; the platform retry
   succeeded. A separate diagnostic observed the same error on `aarch64` compute.
   A Node executable being present is insufficient: it must run on the selected
@@ -152,7 +167,7 @@ Validation resources used:
 - Notebook folder: `/Workspace/Users/alex.feng@databricks.com/datacart-storefront-workshop/notebooks`
 
 The app and project were deleted at the user's request on 17 November 2026 by
-running notebook 3 with `DRY_RUN = False`:
+running notebook 4 with `DRY_RUN = False`:
 [teardown run](https://adb-7405612095630146.6.azuredatabricks.net/?o=7405612095630146#job/686933139782215/run/500946473381707).
 Verified the app is absent and the project is soft-deleted. Lakebase reports its
 scheduled permanent purge as 24 November 2026 at 1:56 pm AEDT. Workspace source
