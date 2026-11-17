@@ -86,7 +86,7 @@ LAKEBASE_PROJECT_ID = (
 # MAGIC - It checks for the initial `production` branch and `databricks_postgres` database,
 # MAGIC   then resolves the read-write endpoint and hostname.
 # MAGIC
-# MAGIC New projects are displayed as `DataCart Storefront <your-cleaned-username>`.
+# MAGIC New projects are displayed as `DataCart Storefront your-cleaned-username`.
 # MAGIC Reusing a project keeps its existing settings and display name.
 # MAGIC
 # MAGIC This step creates billable infrastructure when it creates a new project. It does
@@ -115,7 +115,7 @@ except NotFound:
         project=postgres.Project(
             # Use the same cleaned email suffix as the default resource names.
             spec=postgres.ProjectSpec(
-                display_name=f"DataCart Storefront <{USER_SUFFIX}>"
+                display_name=f"DataCart Storefront {USER_SUFFIX}"
             )
         ),
     ).wait()

@@ -94,7 +94,7 @@ class WorkshopSetupTest(unittest.TestCase):
         )
         self.assertEqual(
             w.postgres.create_project.call_args.kwargs["project"].spec.display_name,
-            "DataCart Storefront <alex-feng>",
+            "DataCart Storefront alex-feng",
         )
 
     def test_app_creation_waits_for_service_principal_without_starting_compute(self):

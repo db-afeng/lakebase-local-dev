@@ -17,7 +17,7 @@ fetched with an integrity check if missing.
 1. **Optional: `0_optional_create_lakebase_project`** creates a Lakebase Autoscaling
    project. Prefer clickops if desired: create a project with its default
    `production` branch, read-write endpoint, and `databricks_postgres` database. New
-   projects display as `DataCart Storefront <your-cleaned-username>`.
+   projects display as `DataCart Storefront your-cleaned-username`.
 2. **`1_prepare_schema_and_seed`** accepts your project ID, applies Alembic, and
    seeds 5 customers, 12 products, 12 inventory rows, 6 orders, and 6 order items.
 3. **`2_create_datacart_app`** accepts the same project ID, builds the React app,
